@@ -21,5 +21,7 @@ Engine and preregistrations: https://github.com/Jakisheff/alashi
 Self-refereeing record: REVIEWS.md.
 
 Cite as: Amir Zhakyshev. Three Machine-Verified Anomalies from
-100-Agent Political-Economy Games. Preprint v1, 2026.
-DOI: assigned on release via repository settings.
+100-Agent Political-Economy Games. Preprint.
+DOI v1: https://doi.org/10.5281/zenodo.24225720
+DOI v2: https://doi.org/10.5281/zenodo.24225748
+Concept DOI (all versions): https://doi.org/10.5281/zenodo.24225719
