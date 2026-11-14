@@ -1,0 +1,185 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{amsmath}
+\hypersetup{urlcolor=blue,colorlinks=true}
+\title{Three Machine-Verified Anomalies from 100-Agent\\ Political-Economy Games}
+\author{Amir Zhakyshev\thanks{Independent researcher, Kazakhstan. Code, data and verification:
+\href{https://github.com/Jakisheff/world-100-grid}{github.com/Jakisheff/world-100-grid}
+(dataset mirror: \href{https://huggingface.co/datasets/amir909909/world-100-grid}{huggingface.co/datasets/amir909909/world-100-grid});
+engine: \href{https://github.com/Jakisheff/alashi}{github.com/Jakisheff/alashi}.}}
+\date{November 14, 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+We report three anomalies observed in preregistered experiments where populations of
+LLM-driven or scripted agents play a shared political-economy game under a deterministic
+Rust engine with bit-exact replay. First, a \emph{protocol-compliance cliff}: in a single-model case study, a frontier
+instruction-tuned model (Llama-3.1-8B-Instruct) fails to copy a menu object on 0 of 100
+first mandatory moves when the legal menu contains a single action, while complying on
+richer menus---compliance is a property of menu poverty, not of prompting alone. Second, a
+\emph{volume-confounded concentration metric}: comparing recipient concentration across
+agent populations with different activity levels reverses the sign of the signal (a
+targeting attacker appears less concentrating than a uniform null on 18 of 20 paired
+seeds) while a conditional permutation test flags the same games at $p<0.05$ on every
+seed. Third, an \emph{adversary-coverage bound on a mechanism}: exhaustive enumeration of
+the influential subspace of legal attack policies (42 genomes) keeps the
+largest-recipient-share cap at $0.07$ against a preregistered $0.08$ threshold (versus
+$0.806$ under the unbalanced interface), but breaches the recipient-HHI line
+($0.0302>0.03$) on one of five held-out seeds through a previously unnoticed action
+combination; the preregistered downgrade fires. Every number in this note is recomputed
+from published data rows by a verification script that runs green in public CI, and the
+verifier itself is mutation-hardened: ten controlled corruptions of the data, including
+one that regenerates file hashes, are all caught.
+\end{abstract}
+
+\section{Setting}
+
+The ALASHI world places 100 agents in one six-round political-economy game: production,
+markets, bribes, law votes and vetoes, with actions admitted only from a bounded menu of
+legal options probed from a canonical Rust rule engine. Every decision is journaled with
+its exact prompt and menu; every game is verified by exact replay against the same engine
+binary. The public package \texttt{world-100-grid} contains 50 recorded games (7{,}410
+bribe decisions) across five arms: a uniform-legal null (20 seeds), a hand-designed legal
+attacker \emph{L4} that bribes the richest visible legal target (21 games), a positional
+control (3), an ablation that hides opponent wealth in the observation (3), and one
+stopped model-driven attempt. The two recorded BitLLM games that motivated the mechanism
+fix (largest recipient share $80.56\%\to 7.14\%$ after interface balancing) are cited from
+the source repository and predate the package.
+
+Three preregistered decision rules fixed thresholds before data (documents
+\texttt{20261113-bribe-grid-prereg}, \texttt{20261113-blind-ablation-prereg},
+\texttt{20261114-prosecutor-pass} in the engine repository), and every headline number
+below is recomputed by \texttt{verify.py} from the published parquet rows; a green run of
+that script is the acceptance test of the package and runs in GitHub CI on every push.
+
+\section{Anomaly 1: the protocol-compliance cliff}
+
+\textbf{Setup.} The world driver asks every agent one decision per phase. The first
+mandatory decision of a game is a round-one market phase in which the engine admits
+exactly one legal action, \texttt{pass}; the model must return one JSON object copied
+from \texttt{allowed\_actions}. We ran Meta Llama-3.1-8B-Instruct (NVIDIA NIM serving,
+temperature 0) against this protocol with both the stock system prompt and a
+format-anchored variant that explicitly forbids inventing actions.
+
+\textbf{Result.} 0 of 100 calls copied a menu object; every answer was a well-formed HTTP
+200 with valid JSON naming an invented action (\texttt{produce\_goods}). The run stopped
+at the preregistered failure threshold before a single accepted action. Direct probes
+with the same model on menus containing produce/bribe options return exact menu objects,
+including under the stock prompt. Compliance is therefore specific to menus that lack the
+action the model wants to take; stricter prompting does not close the gap on menu
+poverty.
+
+\textbf{Implication.} Protocol-compliance smoke tests on the \emph{poorest} legal menu
+are a one-call, zero-cost gate that should precede any benchmark spend on a
+bounded-action protocol. The full failure record (prompts, answers, menu sizes) ships in
+the package.
+
+\section{Anomaly 2: volume-confounded concentration}
+
+\textbf{Setup.} We compare the L4 attacker against the uniform-legal null on 20 paired
+seeds, measuring (i) recipient concentration (largest share, HHI) of accepted bribes,
+(ii) the within-offer wealth percentile of chosen targets against engine-truth cash
+(midrank), and (iii) a conditional permutation null that re-picks targets uniformly
+within each recorded offer set ($B{=}2000$).
+
+\textbf{Result.} The targeting signal is total: the attacker's chosen targets sit
+$+0.244$ above the null in midrank percentile (95\% bootstrap CI $[0.236, 0.276]$;
+positive on 20/20 seeds; percentile bootstrap over seeds, seeded RNG,
+policy stated in the repository; visible and null arms' ranges do not overlap). Yet
+the attacker's raw HHI is \emph{lower} than the null's on 18 of 20 seeds, because it
+bribes about four times more often and concentration shrinks mechanically with volume.
+The conditional permutation test (one-sided by preregistration) flags every L4
+game at $p<0.05$ on both share and HHI; the Wilcoxon signed-rank test on paired
+seeds agrees with the sign test throughout.
+
+\textbf{Implication.} Between-arm concentration comparisons without volume or offer-set
+conditioning invert the sign of the effect. The correct detector for legal targeting
+under a bounded menu is the conditional null on recorded offers; the paired-delta table
+ships as a case artifact in the silent-but-valid corpus.
+
+\section{Anomaly 3: what exhaustive adversary search does to a mechanism claim}
+
+\textbf{Setup.} A discrete policy space of 7{,}938 genomes (targeting rule, bribe
+appetite, sell rule, alternate action, law vote, stickiness) is screened
+one-factor-at-a-time around the L4 anchor on three training seeds (influence threshold
+$0.005$). Three genes are influential---the alternate action (\texttt{donkey} instead of
+\texttt{produce}: $+0.0180$ on mean share, the largest single effect), the sell rule, and
+partially the targeting rule; appetite, law vote and herding stickiness fall below
+threshold. The influential subspace (42 genomes) is enumerated exhaustively; the top five
+plus anchors plus a uniform reference run on five held-out seeds disjoint from all
+published seeds.
+
+\textbf{Result.} The share cap held everywhere: worst $0.0700$ against the preregistered
+$0.08$ (and against $0.8056$ under the original unbalanced interface). The HHI line did
+not: the genome \emph{richest-targeting, slow selling, donkey} reached $0.0302$ against
+the $0.03$ threshold on held-out seed 20261303. A cross-path check through the full
+production driver (HTTP serving, journaling) reproduced the harness numbers exactly
+(100 bribes, 46 recipients, share $0.07$, HHI $0.0302$).
+
+\textbf{Implication.} The preregistered kill fired (the 0.7\% relative overshoot on one of five
+seeds detects the edge of the mechanism, it does not locate it): the transfer
+claim \emph{constraint
+beats detection} downgrades to \emph{the bounded menu holds against the enumerated policy
+families}. The breach is marginal ($0.0302$ vs $0.03$; one seed of five) and was found by
+enumeration, not by evolutionary search; both facts are part of the record. The uncovered
+\texttt{donkey} effect (an economic-rhythm change that concentrates bribes) is a concrete,
+decomposable target for mechanism response.
+
+\section{Verification: the claims are the artifact}
+
+\texttt{verify.py} recomputes 24 checks (claims A--G) from the published rows: exact
+acceptance-run counts (224 bribes / 70 recipients / share $8/224$ / HHI $0.02132494$),
+null quantiles, positional-control ranges, conditional breaches of every L4 game, the
+blind arm's dead aiming (midrank $0.49$--$0.50$ against engine cash), the $20/20$ paired
+effect, the $18/20$ negative HHI deltas, and the model stop. The verifier was itself
+attacked: a mutation harness corrupts the parquet in ten controlled ways; after hardening
+(split hashing plus per-game agreement checks), all ten are caught, including a
+sophisticated corruption that regenerates file hashes and is caught by the logic layer
+alone. An independent reimplementation (Python, from raw journaled calls, bypassing the
+export pipeline) reproduces the three headline statistics bit-exactly.
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{p{0.52\textwidth}p{0.38\textwidth}}
+\toprule
+\textbf{Claim in this note} & \textbf{Machine check (CI)} \\
+\midrule
+Llama 0/100 on menu \texttt{[pass]} & verify.py claim G; summary.json in package \\
+Compliance on richer menus (probes) & probe scripts + model-compliance.json \\
+Paired midrank $+0.244$, 20/20, CI $[0.236,0.276]$ & verify.py claim F \\
+HHI negative on 18/20 seeds & verify.py claim F \\
+Conditional $p<0.05$ on every L4 game & verify.py claim D \\
+Enumeration: worst share $0.0700<0.08$ & held-out results JSON in engine repo \\
+HHI breach $0.0302$ on seed 20261303 & same, plus cross-path report \\
+Acceptance counts 224/70/8; HHI 0.02132494 & verify.py claim A (bit-exact) \\
+Mutation hardening 10/10 & mutation-journal.json in package \\
+\bottomrule
+\end{tabular}
+\caption{Every headline statement maps to a check a third party runs by cloning the
+package and executing one script.}
+\end{table}
+
+\section{Scope}
+
+This is a mechanism study with machine-verified claims on one engine and one
+game family; external generality across environments (for example, rank
+correlation against fixed-rule arenas) is untested and is the natural follow-up.
+The compliance cliff is reported as a single-model case study with a public
+one-command harness; the venue norm for compliance claims is five to nine
+model families, which the follow-up version targets.
+
+\section{Limitations}
+
+Single-author study; seeds are finite (20 paired, 5 held-out) and held-out seeds were
+chosen as a disjoint block, not sampled; the model datapoint is one model version under
+one serving stack; single-gene screening may hide interactions among non-influential
+genes; the HHI edge of the mechanism is mapped at one point, not traced. Model outputs in
+the package are released for research documentation; licensing of third-party model
+outputs is flagged in the dataset card.
+
+\end{document}
