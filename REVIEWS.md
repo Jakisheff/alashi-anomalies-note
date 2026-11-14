@@ -81,3 +81,16 @@ by testing every model family hostable on the local GPU.
 - v2 (1-2 weeks): multi-family compliance cliff (all bundled-weight
   NIM images on L40S), Wilcoxon reported alongside sign test, optional
   interaction control for A3. arXiv versioning carries the update.
+
+## v2 addendum (14.11.2026, same day)
+
+R1's MAJOR (single model) is addressed: the compliance cliff was tested
+across four families with the recorded prompts. Result: the cliff is
+family-dependent --- Llama-3.1-8B (NIM bf16) and Mistral-7B (Ollama Q4)
+fail on the single-action menu with different hallucination flavors
+(invented produce_goods vs invented bribe with a wrong parameter name);
+Gemma-2-9B and Phi-3.5 pass everything. All four comply on the richer
+menu. Verdicts stable at 3/3 temperature-0 runs. Quantization differs
+across serving stacks and is stated in the table. Venue norm is five to
+nine families; four is below it, and the one-command harness is the
+mechanism for outsiders to extend the table.
